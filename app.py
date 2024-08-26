@@ -137,19 +137,34 @@ def test_one_model(api_url, api_key, model_name, model_timeout=10):
 def test_model():
     api_url = request.json.get('api_url')
     api_key = request.json.get('api_key')
-    model_name = request.json.get('model_name')
+    model_names = request.json.get('model_names')
 
-    if not api_url or not api_key or not model_name:
-        return jsonify({"success": False, "message": "Missing API URL, API Key, or Model Name"}), 400
+    if not api_url or not api_key or not model_names:
+        return jsonify({"success": False, "message": "Missing API URL, API Key, or Model Names"}), 400
 
+    if isinstance(model_names, str):
+        model_names = [model_names]
+
+    results = []
     tic = time.time()
-    model_name,response = test_one_model(api_url, api_key, model_name)
-    duration = time.time() - tic
 
-    if response.status_code == 200 or response.status_code == 201:
-        return jsonify({"success": True, "message": "测试成功", "response_time": duration})
-    else:
-        return jsonify({"success": False, "message": response.text}), response.status_code
+    # 使用线程池并发测试多个模型
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(model_names)) as executor:
+        future_to_model = {executor.submit(test_one_model, api_url, api_key, model_name): model_name for model_name in model_names}
+        
+        for future in concurrent.futures.as_completed(future_to_model):
+            model_name = future_to_model[future]
+            try:
+                model_name, response = future.result()
+                duration = time.time() - tic
+                if response.status_code == 200 or response.status_code == 201:
+                    results.append({"model_name": model_name, "success": True, "message": "测试成功", "response_time": duration})
+                else:
+                    results.append({"model_name": model_name, "success": False, "message": response.text, "response_time": duration})
+            except Exception as e:
+                results.append({"model_name": model_name, "success": False, "message": str(e)})
+
+    return jsonify(results)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=os.getenv("PORT", default=5000), debug=True)
