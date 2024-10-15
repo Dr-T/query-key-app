@@ -26,5 +26,8 @@
 
 * 新增feature：模型可用性检测
 
-![available_models](模型可用性检测.png)
+![available_models](新版UI.png)
 
+-----
+
+受Serverless版网关限制，本项目发展有限（本地部署运行依旧正常），现转向全新纯前端版本：https://github.com/QAbot-zh/query-key
